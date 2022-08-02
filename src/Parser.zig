@@ -20,13 +20,17 @@ pub fn ParseResult(comptime T: type) type {
 }
 
 pub const ParseError = union(enum) {
-    // TODO: better error type
+    expectedEof: Token,
     unexpectedEof: usize,
     unbalancedParens: usize,
     unhandledToken: Token,
 
     pub fn show(self: *const ParseError) void {
         switch (self.*) {
+            .expectedEof => |tk| std.log.err("Expected EOF but found '{s}' at {d}", .{
+                @tagName(tk.is),
+                tk.location.start,
+            }),
             .unexpectedEof => |pos| std.log.err("Unexpected EOF at {d}", .{pos}),
             .unbalancedParens => |pos| std.log.err("Unbalanced parens at {d}", .{pos}),
             .unhandledToken => |tk| std.log.err("Unhandled token '{s}' at {d}", .{
@@ -49,8 +53,17 @@ pub fn parse(self: *Parser) ParseResult(Lsrc) {
         .err => |err| return ParseResult(Lsrc){
             .err = err,
         },
-        .val => |expr| return ParseResult(Lsrc){
-            .val = Lsrc{ .expr = expr },
+        .val => |expr| {
+            const result = ParseResult(Lsrc){
+                .val = Lsrc{ .expr = expr },
+            };
+
+            if (self.tk.next()) |token| switch (token.is) {
+                .eof => return result,
+                else => return ParseResult(Lsrc){
+                    .err = ParseError{ .expectedEof = token },
+                },
+            } else return result;
         },
     }
 }
@@ -80,8 +93,7 @@ fn parseExpr(self: *Parser) ParseResult(Lsrc.Expr) {
                 while (true) {
                     switch (self.parseExpr()) {
                         .err => |err| switch (err) {
-                            .unbalancedParens => |pos| {
-                                self.tk.goto(pos); // don't consume
+                            .unbalancedParens => {
                                 break;
                             },
                             else => {
