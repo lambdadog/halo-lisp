@@ -19,7 +19,7 @@ pub fn main() anyerror!void {
         var ps = Parser.init(tk, ally);
         switch (ps.parse()) {
             .err => |err| err.show(),
-            else => {},
+            .val => |lsrc| lsrc.show(),
         }
         // while (tk.next()) |token| {
         //     switch (token.is) {

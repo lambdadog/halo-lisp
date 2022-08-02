@@ -46,4 +46,53 @@ pub const Lsrc = struct {
 
         sexpr: []Expr,
     };
+
+    // Creates its own allocator since it's a debug function
+    pub fn show(self: *const Lsrc) void {
+        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer arena.deinit();
+
+        showInternal(arena.allocator(), 0, self.expr);
+    }
+
+    fn showInternal(ally: std.mem.Allocator, indent: usize, expr: Expr) void {
+        var indent_string = ally.alloc(u8, indent) catch unreachable;
+
+        var i: usize = 0;
+        while (i < indent) : (i += 1) {
+            indent_string[i] = ' ';
+        }
+
+        switch (expr) {
+            .primitive => |p| {
+                std.debug.print("{s}primitive({s})\n", .{
+                    indent_string,
+                    @tagName(p),
+                });
+            },
+            .symbol => |symbol_name| {
+                std.debug.print("{s}symbol({s})\n", .{
+                    indent_string,
+                    symbol_name,
+                });
+            },
+            .constant => |c| {
+                std.debug.print("{s}constant({s})\n", .{
+                    indent_string,
+                    @tagName(c),
+                });
+            },
+            .sexpr => |es| {
+                std.debug.print("{s}sexpr(\n", .{
+                    indent_string,
+                });
+                for (es) |e| {
+                    showInternal(ally, indent + 2, e);
+                }
+                std.debug.print("{s})\n", .{
+                    indent_string,
+                });
+            },
+        }
+    }
 };
